@@ -1,33 +1,24 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import {
   ArrowUp,
-  ChevronDown,
-  Check,
   Settings2,
   Paperclip,
   X,
-  Loader2
+  Loader2,
+  KeyRound
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import type { ModelId, PanelState } from "@/lib/types"
+import type { PanelState } from "@/lib/types"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n/context"
-
-interface AIModel {
-  id: string
-  label: string
-  description?: string
-}
+import { useTheme } from "next-themes"
 
 interface MessageInputProps {
   onSend: (message: string, fileId?: string, targetPanelId?: number) => void
   disabled?: boolean
   isAnyPanelLoading?: boolean
-  model: ModelId
-  availableModels: AIModel[] // New prop
-  onUpdateModel: (model: ModelId) => void
   draft: string
   setDraft: (value: string) => void
   mobilePanel?: PanelState
@@ -39,15 +30,21 @@ interface MessageInputProps {
   activeProviderId?: string
   onClearChats?: () => void
   sendTargets?: { id: number; label: string }[]
+  panelCount?: number
+  onUpdatePanelCount?: (count: number) => void
+  onExportAllChats?: () => void
+  onResetPanels?: () => void
+  onClearEverything?: () => void
+  providerConfigs?: Record<string, { apiKey?: string; baseUrl?: string }>
+  apiProviders?: { id: string; name: string; defaultBaseUrl?: string }[]
+  onUpdateProviderConfig?: (providerId: string, config: { apiKey?: string; baseUrl?: string }) => void
+  autoFocusInput?: boolean
 }
 
 export function MessageInput({
   onSend,
   disabled,
   isAnyPanelLoading,
-  model,
-  availableModels,
-  onUpdateModel,
   draft,
   setDraft,
   mobilePanel,
@@ -57,18 +54,32 @@ export function MessageInput({
   activeProviderId,
   onClearChats,
   sendTargets = [],
+  panelCount = 1,
+  onUpdatePanelCount,
+  onExportAllChats,
+  onResetPanels,
+  onClearEverything,
+  providerConfigs = {},
+  apiProviders = [],
+  onUpdateProviderConfig,
+  autoFocusInput = false,
 }: MessageInputProps) {
   const value = draft
   const setValue = setDraft
-  const [modelMenuOpen, setModelMenuOpen] = useState(false)
-  const [confirmingModelId, setConfirmingModelId] = useState<string | null>(null)
+  const [apiMenuOpen, setApiMenuOpen] = useState(false)
+  const [selectedApiProviderId, setSelectedApiProviderId] = useState("openai")
+  const [apiKeyDraft, setApiKeyDraft] = useState("")
+  const [baseUrlDraft, setBaseUrlDraft] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [uploading, setUploading] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<{ id: string, name: string }[]>([])
   const [targetPanel, setTargetPanel] = useState<"all" | number>("all")
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const { t } = useI18n()
+  const { resolvedTheme, setTheme } = useTheme()
+  const activeApiProvider = apiProviders.find((p) => p.id === selectedApiProviderId)
 
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim()
@@ -101,7 +112,16 @@ export function MessageInput({
     }
   }
 
-  const currentModel = availableModels.find((m) => m.id === model)
+  useEffect(() => {
+    const defaultProvider = activeProviderId || apiProviders[0]?.id || "openai"
+    setSelectedApiProviderId(defaultProvider)
+  }, [activeProviderId, apiProviders])
+
+  useEffect(() => {
+    const providerConfig = providerConfigs[selectedApiProviderId] || {}
+    setApiKeyDraft(providerConfig.apiKey || "")
+    setBaseUrlDraft(providerConfig.baseUrl || activeApiProvider?.defaultBaseUrl || "")
+  }, [selectedApiProviderId, providerConfigs, activeApiProvider?.defaultBaseUrl])
 
   return (
     <footer className="border-none shrink-0 relative z-20 bg-gradient-to-t from-background from-45% via-background/90 to-transparent pt-8 md:pt-12 pointer-events-none">
@@ -114,6 +134,7 @@ export function MessageInput({
             value={value}
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
+            autoFocus={autoFocusInput}
             placeholder={
               disabled
                 ? t("enterApiKeyMsg")
@@ -170,6 +191,27 @@ export function MessageInput({
               >
                 {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="h-4 w-4 shrink-0" />}
               </motion.button>
+              {onUpdatePanelCount && (
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onUpdatePanelCount(Math.max(1, panelCount - 1))}
+                    className="h-7 w-7 rounded-lg border border-border/60 bg-background text-muted-foreground hover:text-foreground"
+                    aria-label="Decrease panels"
+                  >
+                    -
+                  </button>
+                  <span className="min-w-[18px] text-center text-xs text-muted-foreground">{panelCount}</span>
+                  <button
+                    type="button"
+                    onClick={() => onUpdatePanelCount(Math.min(100, panelCount + 1))}
+                    className="h-7 w-7 rounded-lg border border-border/60 bg-background text-muted-foreground hover:text-foreground"
+                    aria-label="Increase panels"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
 
               {/* Attachments inline preview */}
               <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar flex-1 min-w-0 pr-1">
@@ -188,144 +230,6 @@ export function MessageInput({
                   </div>
                 ))}
               </div>
-              {!enablePanelMode && (
-                <div className="relative shrink-0 z-50">
-                  <motion.button
-                    type="button"
-                    onClick={() => setModelMenuOpen(!modelMenuOpen)}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all",
-                      "border border-border bg-background text-muted-foreground",
-                      "hover:border-primary/40 hover:text-foreground",
-                      modelMenuOpen &&
-                      "border-primary/40 text-foreground bg-primary/5"
-                    )}
-                  >
-                    <span className="truncate max-w-[100px] md:max-w-[160px]">
-                      {currentModel?.label || (availableModels[0]?.label ?? model)}
-                    </span>
-                    <motion.span
-                      animate={{ rotate: modelMenuOpen ? 180 : 0 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                    >
-                      <ChevronDown className="h-3 w-3 shrink-0" />
-                    </motion.span>
-                  </motion.button>
-
-                  <AnimatePresence>
-                    {modelMenuOpen && (
-                      <>
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => setModelMenuOpen(false)}
-                        />
-                        <motion.div
-                          initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                          transition={{
-                            type: "spring",
-                            stiffness: 400,
-                            damping: 25,
-                          }}
-                          className="absolute bottom-full right-0 mb-2 w-[260px] sm:w-72 bg-card border border-border rounded-2xl overflow-hidden z-50 shadow-[0_4px_20px_rgba(62,168,255,0.08)] flex flex-col max-h-[300px] max-w-[calc(100vw-32px)]"
-                        >
-                          <div className="overflow-y-auto custom-scrollbar">
-                            {availableModels.length === 0 && (
-                              <div className="px-4 py-3 text-xs text-muted-foreground">{t("noModelsAvailable")}</div>
-                            )}
-                            {availableModels.map((m, i) => (
-                              <motion.div
-                                key={m.id}
-                                onClick={() => {
-                                  if (activeProviderId === "dify" && model !== m.id) {
-                                    setConfirmingModelId(m.id)
-                                  } else {
-                                    onUpdateModel(m.id)
-                                    setModelMenuOpen(false)
-                                  }
-                                }}
-                                initial={{ opacity: 0, x: -8 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{
-                                  delay: Math.min(i, 20) * 0.02, // cap delay to avoid long waits for huge lists
-                                  type: "spring",
-                                  stiffness: 300,
-                                  damping: 25,
-                                }}
-                                className={cn(
-                                  "w-full flex items-center gap-3 px-4 py-3 text-left transition-colors",
-                                  "hover:bg-primary/5",
-                                  model === m.id && "bg-primary/8"
-                                )}
-                              >
-                                {confirmingModelId === m.id ? (
-                                  <div className="flex flex-col gap-1.5 w-full">
-                                    <span className="text-[10px] text-destructive font-bold">{t("willResetChat")}</span>
-                                    <div className="flex gap-2 w-full justify-between items-center">
-                                      <span className="text-xs font-semibold text-foreground truncate pl-1 flex-1">{m.label}</span>
-                                      <div className="flex gap-1 shrink-0">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            setConfirmingModelId(null)
-                                          }}
-                                          className="text-[10px] px-2 py-1 rounded bg-muted hover:bg-muted/80"
-                                        >
-                                          {t("cancel")}
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            onUpdateModel(m.id)
-                                            if (onClearChats) onClearChats()
-                                            setConfirmingModelId(null)
-                                            setModelMenuOpen(false)
-                                          }}
-                                          className="text-[10px] px-2 py-1 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        >
-                                          {t("confirmDelete")}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-xs font-medium text-foreground">
-                                        {m.label}
-                                      </div>
-                                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                                        {m.description}
-                                      </div>
-                                    </div>
-                                    {model === m.id && (
-                                      <motion.span
-                                        initial={{ scale: 0 }}
-                                        animate={{ scale: 1 }}
-                                        transition={{
-                                          type: "spring",
-                                          stiffness: 500,
-                                          damping: 20,
-                                        }}
-                                      >
-                                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                                      </motion.span>
-                                    )}
-                                  </>
-                                )}
-                              </motion.div>
-                            ))}
-                          </div>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
-              )}
               {sendTargets.length > 0 && (
                 <div className="relative shrink-0 z-50">
                   <select
@@ -346,6 +250,154 @@ export function MessageInput({
                   </select>
                 </div>
               )}
+              <div className="relative shrink-0 z-50">
+                <motion.button
+                  type="button"
+                  onClick={() => setApiMenuOpen((v) => !v)}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  className="h-8 rounded-xl border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5"
+                  title="API Key Settings"
+                >
+                  <KeyRound className="h-3.5 w-3.5" />
+                  API
+                </motion.button>
+                <AnimatePresence>
+                  {apiMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setApiMenuOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                        className="absolute bottom-full right-0 mb-2 z-50 w-72 rounded-xl border border-border/70 bg-card shadow-lg p-3 space-y-2"
+                      >
+                        <select
+                          value={selectedApiProviderId}
+                          onChange={(e) => setSelectedApiProviderId(e.target.value)}
+                          className="w-full h-8 rounded-lg border border-border/60 bg-background px-2 text-xs text-foreground"
+                        >
+                          {apiProviders.map((p) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="password"
+                          value={apiKeyDraft}
+                          onChange={(e) => setApiKeyDraft(e.target.value)}
+                          className="w-full h-8 rounded-lg border border-border/60 bg-background px-2 text-xs text-foreground"
+                          placeholder="API Key"
+                        />
+                        <input
+                          type="text"
+                          value={baseUrlDraft}
+                          onChange={(e) => setBaseUrlDraft(e.target.value)}
+                          className="w-full h-8 rounded-lg border border-border/60 bg-background px-2 text-xs text-foreground"
+                          placeholder="Base URL (optional)"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onUpdateProviderConfig?.(selectedApiProviderId, {
+                              apiKey: apiKeyDraft.trim(),
+                              baseUrl: baseUrlDraft.trim(),
+                            })
+                            setApiMenuOpen(false)
+                          }}
+                          className="w-full h-8 rounded-lg bg-primary text-primary-foreground text-xs font-medium"
+                        >
+                          Save
+                        </button>
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
+              <div className="relative shrink-0">
+                <motion.button
+                  type="button"
+                  onClick={() => setSettingsMenuOpen((v) => !v)}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl transition-colors"
+                  aria-label="Open settings menu"
+                  title="Settings"
+                >
+                  <Settings2 className="h-4 w-4" />
+                </motion.button>
+                <AnimatePresence>
+                  {settingsMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setSettingsMenuOpen(false)} />
+                      <motion.div
+                        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                        className="absolute bottom-full right-0 mb-2 z-50 w-56 rounded-xl border border-border/70 bg-card shadow-lg p-1.5"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                            setSettingsMenuOpen(false)
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-muted/50 text-foreground"
+                        >
+                          Theme: {resolvedTheme === "dark" ? "Dark" : "Light"}
+                        </button>
+                        {onExportAllChats && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onExportAllChats()
+                              setSettingsMenuOpen(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-muted/50 text-foreground"
+                          >
+                            Export All Chats
+                          </button>
+                        )}
+                        {onClearChats && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClearChats()
+                              setSettingsMenuOpen(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-muted/50 text-foreground"
+                          >
+                            Clear Chats
+                          </button>
+                        )}
+                        {onResetPanels && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onResetPanels()
+                              setSettingsMenuOpen(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-muted/50 text-foreground"
+                          >
+                            Reset Panels
+                          </button>
+                        )}
+                        {onClearEverything && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClearEverything()
+                              setSettingsMenuOpen(false)
+                            }}
+                            className="w-full text-left px-3 py-2 text-xs rounded-lg hover:bg-destructive/10 text-destructive"
+                          >
+                            Clear Everything
+                          </button>
+                        )}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
 
               {/* Mobile: system prompt button removed, now in chat-panel directly */}
             </div>

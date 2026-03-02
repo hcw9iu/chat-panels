@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react"
 import { type PlaygroundSettings, type PanelState, type ChatMessage } from "@/lib/types"
-import { getProvider, getAllProviders, PROVIDER_REGISTRY, LONGCAT_PROVIDER, DIFY_PROVIDER } from "@/lib/ai-providers/registry"
+import { getProvider, getAllProviders, PROVIDER_REGISTRY, LONGCAT_PROVIDER, DIFY_PROVIDER, OPENAI_PROVIDER } from "@/lib/ai-providers/registry"
 import type { ProviderConfig } from "@/lib/ai-providers/types"
 
 const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
@@ -19,8 +19,8 @@ function createPanel(id: number): PanelState {
     id,
     title: `Panel ${id + 1}`,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    providerId: DIFY_PROVIDER.id,
-    modelId: DIFY_PROVIDER.models[0].id,
+    providerId: OPENAI_PROVIDER.id,
+    modelId: OPENAI_PROVIDER.models[0].id,
     messages: [],
     isLoading: false,
   }
@@ -172,8 +172,8 @@ async function* parseSSEStream(
 /* ------------------------------------------------------------------ */
 
 const DEFAULT_SETTINGS: PlaygroundSettings = {
-  activeProviderId: DIFY_PROVIDER.id,
-  activeModelId: DIFY_PROVIDER.models[0].id,
+  activeProviderId: OPENAI_PROVIDER.id,
+  activeModelId: OPENAI_PROVIDER.models[0].id,
   panelCount: 2,
   enablePanelMode: true,
   providerConfigs: {},
@@ -236,9 +236,9 @@ export function usePlayground() {
 
     // Default active provider/model if missing or invalid
     if (!savedSettings.activeProviderId || !getProvider(savedSettings.activeProviderId)) {
-      savedSettings.activeProviderId = LONGCAT_PROVIDER.id
+      savedSettings.activeProviderId = OPENAI_PROVIDER.id
       // Fallback model ID if not found
-      savedSettings.activeModelId = getProvider(LONGCAT_PROVIDER.id)?.models[0].id || "gpt-4o"
+      savedSettings.activeModelId = getProvider(OPENAI_PROVIDER.id)?.models[0].id || "gpt-4o"
     }
 
     const savedPanels = loadFromStorage<PanelState[]>(
@@ -254,6 +254,8 @@ export function usePlayground() {
         // Clear isLoading and isStreaming on restore
         return {
           ...saved,
+          providerId: saved.providerId || OPENAI_PROVIDER.id,
+          modelId: saved.modelId || OPENAI_PROVIDER.models[0].id,
           isLoading: false,
           messages: saved.messages.map((m) => ({ ...m, isStreaming: false })),
         }

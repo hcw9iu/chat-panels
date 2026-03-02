@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
-import { HeaderBar } from "@/components/header-bar"
+import { useState, useCallback, useMemo, useEffect } from "react"
 import { ChatPanel } from "@/components/chat-panel"
 import { MessageInput } from "@/components/message-input"
 import { LanguageSelector } from "@/components/language-selector"
@@ -10,6 +9,7 @@ import { usePlayground } from "@/hooks/use-playground"
 import { useTemplates } from "@/hooks/use-templates"
 import {
   Github,
+  MessageSquare,
 } from "lucide-react"
 import {
   getAllProviders
@@ -22,14 +22,10 @@ export default function PlaygroundPage() {
     draft,
     setDraft,
     hydrated,
-    updateApiKey,
-    updateModel,
     updatePanelCount,
     updatePanelTitle,
     updateSystemPrompt,
     clearAllChats,
-    clearApiKey,
-    resetSystemPrompts,
     resetPanels,
     clearEverything,
     sendMessage,
@@ -37,11 +33,7 @@ export default function PlaygroundPage() {
     updateDifyInputs,
     refreshDifyParameters,
     registerDifyApp,
-    removeDifyApp,
-    updateActiveProvider,
     updateProviderConfig,
-    updateProviderModels,
-    togglePanelMode,
   } = usePlayground()
 
   const templateStore = useTemplates()
@@ -92,14 +84,6 @@ export default function PlaygroundPage() {
     hasApiKey = (currentProviderConfig?.difyApps?.length || 0) > 0
   }
 
-  // Get available models for active provider
-  const activeProvider = getAllProviders().find(p => p.id === settings.activeProviderId)
-  const availableModels = (settings.providerConfigs?.[settings.activeProviderId]?.models || activeProvider?.models || []).map(m => ({
-    id: m.id,
-    label: m.label || m.id, // Ensure label exists
-    description: m.description
-  }))
-
   const effectiveProviders = useMemo(() => {
     return getAllProviders().map(p => {
       const dynamic = settings.providerConfigs?.[p.id]?.models
@@ -116,6 +100,18 @@ export default function PlaygroundPage() {
   }, [settings.providerConfigs])
 
   const [mobilePromptOpen, setMobilePromptOpen] = useState(false)
+  const [composerOpen, setComposerOpen] = useState(false)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+        e.preventDefault()
+        setComposerOpen((v) => !v)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   if (!hydrated) {
     return <PlaygroundSkeleton />
@@ -187,37 +183,6 @@ export default function PlaygroundPage() {
 
   return (
     <div className="flex h-dvh bg-background overflow-hidden relative flex-col">
-      {/* Floating Header */}
-      <div className="shrink-0 relative z-20">
-        <HeaderBar
-          settings={settings}
-          onUpdateApiKey={updateApiKey}
-          onUpdatePanelCount={updatePanelCount}
-          onClearChats={clearAllChats}
-          onClearApiKey={clearApiKey}
-          onResetPrompts={resetSystemPrompts}
-          onClearEverything={clearEverything}
-          onExportAllChats={exportAllChats}
-          setMobilePromptOpen={setMobilePromptOpen}
-          templates={templateStore.templates}
-          onApplyTemplate={
-            currentMobilePanel
-              ? (content: string) => updateSystemPrompt(currentMobilePanel.id, content)
-              : undefined
-          }
-          templateStore={templateStore}
-          updateActiveProvider={updateActiveProvider}
-          updateProviderConfig={updateProviderConfig}
-          updateProviderModels={updateProviderModels}
-          togglePanelMode={togglePanelMode}
-          onRegisterDifyApp={registerDifyApp}
-          onRemoveDifyApp={removeDifyApp}
-          onResetPanels={resetPanels}
-          panels={panels}
-          updatePanelConfig={updatePanelConfig}
-        />
-      </div>
-
       {/* ============ PANELS ============ */}
       <div className="flex-1 relative min-h-0">
         <div className="absolute inset-0 p-2 md:p-3">
@@ -228,37 +193,53 @@ export default function PlaygroundPage() {
 
 
       {/* Global Input (Overlay) */}
-      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
-        <MessageInput
-          onSend={sendMessage}
-          disabled={!hasApiKey}
-          isAnyPanelLoading={isAnyPanelLoading}
-          model={settings.activeModelId}
-          availableModels={availableModels}
-          onUpdateModel={updateModel}
-          draft={draft}
-          setDraft={setDraft}
-          mobilePanel={currentMobilePanel}
-          onUpdateMobileSystemPrompt={
-            currentMobilePanel
-              ? (prompt: string) =>
-                updateSystemPrompt(currentMobilePanel.id, prompt)
-              : undefined
-          }
-          onUpdateMobileTitle={
-            currentMobilePanel
-              ? (title: string) =>
-                updatePanelTitle(currentMobilePanel.id, title)
-              : undefined
-          }
-          mobilePromptOpen={mobilePromptOpen}
-          setMobilePromptOpen={setMobilePromptOpen}
-          enablePanelMode={settings.enablePanelMode}
-          activeProviderId={settings.activeProviderId}
-          onClearChats={clearAllChats}
-          sendTargets={panels.slice(0, count).map((p) => ({ id: p.id, label: p.title || `Panel ${p.id + 1}` }))}
-        />
-      </div>
+      <button
+        onClick={() => setComposerOpen((v) => !v)}
+        className="fixed bottom-6 left-6 z-30 h-10 w-10 rounded-full border border-border/60 bg-card/90 backdrop-blur-sm text-muted-foreground hover:text-foreground"
+        title="Toggle message box (Ctrl+I)"
+        aria-label="Toggle message box"
+      >
+        <MessageSquare className="h-5 w-5 mx-auto" />
+      </button>
+      {composerOpen && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
+          <MessageInput
+            onSend={sendMessage}
+            disabled={!hasApiKey}
+            isAnyPanelLoading={isAnyPanelLoading}
+            draft={draft}
+            setDraft={setDraft}
+            mobilePanel={currentMobilePanel}
+            onUpdateMobileSystemPrompt={
+              currentMobilePanel
+                ? (prompt: string) =>
+                  updateSystemPrompt(currentMobilePanel.id, prompt)
+                : undefined
+            }
+            onUpdateMobileTitle={
+              currentMobilePanel
+                ? (title: string) =>
+                  updatePanelTitle(currentMobilePanel.id, title)
+                : undefined
+            }
+            mobilePromptOpen={mobilePromptOpen}
+            setMobilePromptOpen={setMobilePromptOpen}
+            enablePanelMode={settings.enablePanelMode}
+            activeProviderId={settings.activeProviderId}
+            onClearChats={clearAllChats}
+            sendTargets={panels.slice(0, count).map((p) => ({ id: p.id, label: p.title || `Panel ${p.id + 1}` }))}
+            panelCount={count}
+            onUpdatePanelCount={updatePanelCount}
+            onExportAllChats={exportAllChats}
+            onResetPanels={resetPanels}
+            onClearEverything={clearEverything}
+            providerConfigs={settings.providerConfigs}
+            apiProviders={getAllProviders().map((p) => ({ id: p.id, name: p.name, defaultBaseUrl: p.defaultBaseUrl || "" }))}
+            onUpdateProviderConfig={updateProviderConfig}
+            autoFocusInput
+          />
+        </div>
+      )}
 
       {/* Floating Bottom-Right: GitHub + Language (PC Only) */}
       <div className="fixed bottom-6 right-6 hidden md:flex items-center gap-2 z-30">
