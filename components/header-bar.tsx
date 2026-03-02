@@ -22,7 +22,9 @@ import {
   ToggleRight,
   Download,
   Languages,
-  Github
+  Github,
+  Moon,
+  Sun
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
@@ -37,6 +39,7 @@ import { getProvider, getAllProviders } from "@/lib/ai-providers/registry"
 import { cn } from "@/lib/utils"
 import { useI18n } from "@/lib/i18n/context"
 import { LanguageSelector } from "./language-selector"
+import { useTheme } from "next-themes"
 
 interface TemplateStore {
   templates: PromptTemplate[]
@@ -152,6 +155,7 @@ export function HeaderBar({
   updatePanelConfig
 }: HeaderBarProps) {
   const { t } = useI18n()
+  const { resolvedTheme, setTheme } = useTheme()
 
   const manageTabs = [
     { id: "chats", label: t("clearChats") },
@@ -301,31 +305,6 @@ export function HeaderBar({
             </Link>
           </div>
 
-          {/* Desktop Controls (Center) */}
-          <div className="hidden md:flex items-center gap-4">
-
-            {/* Panel Mode Active Indicator */}
-            {settings.enablePanelMode && (
-              <button
-                onClick={() => {
-                  const next = !providersOpen
-                  closeAllDrawers()
-                  if (next) setProvidersOpen(true)
-                }}
-                className={cn(
-                  "flex items-center gap-2 px-2 py-1 rounded-lg transition-colors group",
-                  providersOpen ? "bg-primary/10 text-primary" : "hover:bg-muted/50"
-                )}
-                title="Panel Mode Active"
-              >
-                <div className="h-5 w-5 rounded-md border border-border/60 bg-primary/10 flex items-center justify-center overflow-hidden group-hover:bg-primary/20">
-                  <Settings2 className="h-3 w-3 text-primary" />
-                </div>
-                <span className="text-xs font-medium text-foreground">Panel Mode</span>
-              </button>
-            )}
-          </div>
-
           <div className="flex items-center gap-1.5 md:gap-3">
             <div className="hidden md:flex items-center gap-2 mr-2">
               <span className="text-xs text-muted-foreground">Panels</span>
@@ -353,7 +332,7 @@ export function HeaderBar({
               )}
               title="AI Providers"
             >
-              {activeProvider && !settings.enablePanelMode && (
+              {activeProvider && (
                 <>
                   <div className="h-5 w-5 rounded shadow-sm border border-border/50 bg-background flex items-center justify-center overflow-hidden shrink-0">
                     <Image
@@ -368,14 +347,25 @@ export function HeaderBar({
                   <span className="text-xs font-medium hidden md:block whitespace-nowrap">{activeProvider.name}</span>
                 </>
               )}
-              {settings.enablePanelMode && (
-                <div className="h-5 w-5 rounded shadow-sm border border-primary/20 bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                  <Settings2 className="h-3 w-3 text-primary" />
-                </div>
-              )}
               <Box className="h-3.5 w-3.5 md:h-4 md:w-4 ml-0.5 opacity-70" />
             </motion.button>
 
+
+            {/* Templates Toggle */}
+            <motion.button
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.85 }}
+              transition={{ type: "spring", stiffness: 400, damping: 17 }}
+              className={cn(
+                "h-8 w-8 md:h-8 md:w-8 flex items-center justify-center rounded-xl transition-colors",
+                "text-muted-foreground hover:text-primary"
+              )}
+              title={t("themeMode")}
+              aria-label={t("themeMode")}
+            >
+              {resolvedTheme === "dark" ? <Moon className="h-4 w-4 md:h-4 md:w-4" /> : <Sun className="h-4 w-4 md:h-4 md:w-4" />}
+            </motion.button>
 
             {/* Templates Toggle */}
             <motion.button
@@ -456,6 +446,26 @@ export function HeaderBar({
                     {t("language")}
                   </span>
                   <LanguageSelector modalMode={false} />
+                </div>
+                <div className="flex items-center justify-between border-t border-border/40 pt-3">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5 min-w-0 shrink-0">
+                    {resolvedTheme === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                    {t("themeMode")}
+                  </span>
+                  <motion.button
+                    onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="h-7 w-11 rounded-full border border-border/60 bg-background flex items-center px-1"
+                    aria-label={t("themeMode")}
+                  >
+                    <span
+                      className={cn(
+                        "h-5 w-5 rounded-full bg-primary transition-transform",
+                        resolvedTheme === "dark" ? "translate-x-4" : "translate-x-0"
+                      )}
+                    />
+                  </motion.button>
                 </div>
                 <div className="flex items-center justify-between border-t border-border/40 pt-3">
                   <span className="text-xs text-muted-foreground flex items-center gap-1.5 min-w-0 shrink-0">
@@ -649,6 +659,30 @@ export function HeaderBar({
                       </div>
 
                       <div className="space-y-4">
+                        {/* Theme Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-background border border-border/60 rounded-xl shadow-sm">
+                          <div className="pr-4">
+                            <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                              {resolvedTheme === "dark" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+                              {t("themeMode")}
+                            </h3>
+                            <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">
+                              {t("themeModeDesc")}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+                            className="shrink-0 transition-transform active:scale-90"
+                            aria-label={t("themeMode")}
+                          >
+                            {resolvedTheme === "dark" ? (
+                              <ToggleRight className="h-7 w-7 text-primary" />
+                            ) : (
+                              <ToggleLeft className="h-7 w-7 text-muted-foreground/50" />
+                            )}
+                          </button>
+                        </div>
+
                         {/* Panel Mode Toggle */}
                         <div className="flex items-center justify-between p-4 bg-background border border-border/60 rounded-xl shadow-sm">
                           <div className="pr-4">
@@ -656,14 +690,12 @@ export function HeaderBar({
                             <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">{t("panelModeDesc")}</p>
                           </div>
                           <button
-                            onClick={() => togglePanelMode?.(!settings.enablePanelMode)}
-                            className="shrink-0 transition-transform active:scale-90"
+                            onClick={() => togglePanelMode?.(true)}
+                            className="shrink-0 opacity-90 cursor-default"
+                            aria-label={t("panelMode")}
+                            title="Always enabled"
                           >
-                            {settings.enablePanelMode ? (
-                              <ToggleRight className="h-7 w-7 text-primary" />
-                            ) : (
-                              <ToggleLeft className="h-7 w-7 text-muted-foreground/50" />
-                            )}
+                            <ToggleRight className="h-7 w-7 text-primary" />
                           </button>
                         </div>
                         {settings.enablePanelMode && panels && panels.length > 0 && (

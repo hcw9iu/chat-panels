@@ -265,7 +265,7 @@ export default function PlaygroundPage() {
                     updateSystemPrompt(panel.id, content)
                   }
                   availableProviders={effectiveProviders}
-                  onSend={sendMessage}
+                  onSend={(message) => sendMessage(message, undefined, panel.id)}
                   difyParameters={
                     panel.difyParameters ||
                     settings.providerConfigs["dify"]?.difyApps?.find(a => a.apiKey === (panel.modelId || settings.activeModelId))?.parameters ||
@@ -349,6 +349,7 @@ export default function PlaygroundPage() {
           enablePanelMode={settings.enablePanelMode}
           activeProviderId={settings.activeProviderId}
           onClearChats={clearAllChats}
+          sendTargets={panels.slice(0, count).map((p) => ({ id: p.id, label: p.title || `Panel ${p.id + 1}` }))}
         />
       </div>
 

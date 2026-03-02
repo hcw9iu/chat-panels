@@ -5,6 +5,8 @@ export class OpenAICompatibleProvider extends BaseProvider {
     async createChatCompletion(request: ChatCompletionRequest): Promise<Response> {
         const baseUrl = this.baseUrl?.replace(/\/+$/, "")
         const url = `${baseUrl}/chat/completions`
+        const modelId = request.model.toLowerCase()
+        const usesMaxCompletionTokens = /(^|[/:-])gpt-5([.-]|$)/i.test(modelId)
 
         // Prepare messages
         const messages = [
@@ -17,8 +19,14 @@ export class OpenAICompatibleProvider extends BaseProvider {
             messages,
             stream: request.stream ?? true,
             stream_options: (request.stream ?? true) ? { include_usage: true } : undefined,
-            temperature: request.temperature ?? 0.7,
-            max_tokens: request.maxTokens ?? 4096,
+        }
+
+        // GPT-5 family expects `max_completion_tokens` instead of `max_tokens`.
+        if (usesMaxCompletionTokens) {
+            body.max_completion_tokens = request.maxTokens ?? 4096
+        } else {
+            body.temperature = request.temperature ?? 0.7
+            body.max_tokens = request.maxTokens ?? 4096
         }
 
         // Handle thinking params if applicable (mostly for Longcat but generic enough)

@@ -1,153 +1,122 @@
 # Chat Panels
 
-**Minimal multi-pane AI playground** — Compare and interact with multiple AI models side by side in your browser.
+Minimal multi-panel AI playground for comparing models side by side.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-chat--panels.pages.dev-blue?style=for-the-badge&logo=cloudflare)](https://chat-panels.pages.dev)
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/lnkiai/chat-panels)
 
-![Chat Panels – Multi-panel chat UI](public/images/chat-ui.png)
+![Chat Panels – Demo](public/images/demo.png)
 
-## ✨ Features
+## What's New
 
-- **Multi-panel layout** — Open up to 4 AI conversations side by side
-- **Multiple AI providers** — Dify, OpenAI, Anthropic, Gemini, OpenRouter, Longcat AI, and more
-- **Zero server-side storage** — All settings and chat history are stored locally in your browser
-- **Streaming responses** — Real-time streaming for all supported providers
-- **System prompt management** — Per-panel system prompts with template support
-- **Dify integration** — Full support for Dify Chat App API, including file uploads and suggested questions
-- **i18n support** — English and Japanese UI
-- **Responsive** — Works on desktop and mobile (swipe between panels)
-- **Edge Runtime** — Deployable to Cloudflare Pages and Vercel Edge Network
+### Added
+- Per-panel prompt sending:
+  - Main input now supports sending to `All Panels` or a selected panel.
+  - Panel-local actions (suggested questions / Dify interactive responses) send only to that panel.
+- Per-panel model source as default behavior:
+  - Provider/model selection is panel-scoped.
+  - Panel mode is always on for per-panel configuration.
+- Dark theme improvements:
+  - Dark theme is default on load.
+  - App-level theme toggle added (separate from Next.js DevTools preferences).
+- Docker startup support:
+  - `docker-compose.yml` added for local dev startup.
 
-### Dify Setup
+### Fixed
+- OpenAI GPT-5 family compatibility:
+  - Uses `max_completion_tokens` instead of `max_tokens` for GPT-5 family models.
+  - Does not send custom `temperature` for GPT-5 family models (uses API default).
 
-![Dify Settings](public/images/dify-settings.png)
+## Features
 
-### OpenAI-compatible Endpoints
+- Multi-panel chat layout (up to 4 panels visible responsively)
+- Multiple providers: Dify, OpenAI, Anthropic, Gemini, OpenRouter, Longcat, and OpenAI-compatible endpoints
+- Streaming responses
+- Per-panel system prompts
+- Prompt templates
+- Dify app support (upload, parameters, feedback, suggested questions)
+- i18n support (EN/JA/ZH)
+- Local-first storage (API keys and chats stay in browser localStorage)
 
-> Works with any OpenAI-compatible API — including [Nebius AI](https://nebius.com/), [Together AI](https://www.together.ai/), [Groq](https://groq.com/), and more.
+## Quick Start
 
-![OpenAI-compatible Config](public/images/openai-config.png)
-
-## 🚀 Deploy
-
-### Option A: Vercel (Easiest)
-
-1. Click the **Deploy with Vercel** button above, or fork this repository and import it on [Vercel](https://vercel.com/new)
-2. Use the default settings (Next.js is auto-detected)
-3. Click **Deploy**
-
-### Option B: Cloudflare Pages
-
-1. Fork this repository
-2. Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages** → **Create** → **Pages** → **Connect to Git**
-3. Select your forked repository
-4. Set the following build settings:
-
-   | Setting | Value |
-   |---------|-------|
-   | **Framework preset** | `None` |
-   | **Build command** | `npm run pages:build` |
-   | **Build output directory** | `.vercel/output/static` |
-
-5. Add environment variables (under **Settings → Environment variables**):
-
-   | Variable | Value |
-   |----------|-------|
-   | `NODE_VERSION` | `20.19.0` |
-
-6. Click **Save and Deploy**
-
-> **Note**: No API keys are required as environment variables — users enter their own keys in the browser UI.
-
-### Option C: Run Locally
+### Local (Node)
 
 ```bash
-# Clone the repository
 git clone https://github.com/lnkiai/chat-panels.git
 cd chat-panels
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open `http://localhost:3000`.
 
-## 🔑 Supported AI Providers
+### Local (Docker Compose)
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000`.
+
+## Deployment
+
+### Vercel
+1. Import this repository in Vercel.
+2. Use default Next.js settings.
+3. Deploy.
+
+### Cloudflare Pages
+Use:
+- Build command: `npm run pages:build`
+- Output directory: `.vercel/output/static`
+- Environment variable: `NODE_VERSION=20.19.0`
+
+## Supported Providers
 
 | Provider | Notes |
-|------------|-------|
-| **Dify** | Full Chat App API support (streaming, file upload, suggested questions) |
-| **OpenAI** | GPT-4o, o3-mini, GPT-5, and more |
-| **Anthropic** | Claude Sonnet 4.6, Claude Opus 4.6, Haiku 4.5, and more |
-| **Google Gemini** | Gemini 2.5 Pro, Gemini 2.5 Flash, and more |
-| **OpenRouter** | Access 400+ models through a single API |
-| **Longcat AI** | High-speed, long-context models |
-| **OpenAI-compatible** | Any custom endpoint — Nebius, Together AI, Groq, Ollama, and more |
+|---|---|
+| Dify | Chat App API, uploads, suggested questions |
+| OpenAI | GPT-4o/o-series/GPT-5 family |
+| Anthropic | Claude models |
+| Gemini | Google Gemini models |
+| OpenRouter | Unified access to many models |
+| Longcat | Long-context models |
+| OpenAI-compatible | Custom compatible endpoints |
 
-> Each provider requires its own API key, which is stored only in your browser's local storage.
+## Tech Stack
 
-## 🛠️ Tech Stack
+- Next.js 16 (App Router)
+- React 19
+- TypeScript
+- Tailwind CSS
+- shadcn/ui + Radix UI
+- Framer Motion
 
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-- **Runtime**: React 19
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: [shadcn/ui](https://ui.shadcn.com/) + Radix UI
-- **Animations**: Framer Motion
-- **Deployment**: Cloudflare Pages (`@cloudflare/next-on-pages`)
+## Project Structure
 
-## 📁 Project Structure
-
-```
+```text
 chat-panels/
 ├── app/
 │   ├── api/
-│   │   ├── chat/         # Main chat proxy (Edge Runtime)
-│   │   ├── models/       # Fetch available models from providers
-│   │   └── dify/         # Dify-specific endpoints (upload, feedback, etc.)
+│   │   ├── chat/
+│   │   ├── models/
+│   │   └── dify/
 │   ├── layout.tsx
-│   └── page.tsx          # Main playground page
-├── components/           # UI components (HeaderBar, ChatPanel, MessageInput...)
-├── hooks/                # React hooks (usePlayground, useTemplates...)
+│   └── page.tsx
+├── components/
+├── hooks/
 ├── lib/
-│   ├── ai-providers/     # Provider definitions and implementations
-│   └── i18n/             # Internationalization (EN/JA)
-└── public/               # Static assets (fonts, icons, OG image)
+└── public/
 ```
 
-## ⚙️ Configuration
+## Privacy
 
-All configuration is done through the in-app settings UI. No `.env` file is required for basic usage.
+- No server-side chat persistence by this project.
+- API keys are stored in browser localStorage.
+- `/api/chat` acts as a streaming proxy to provider APIs.
 
-The app stores the following in `localStorage`:
-- API keys (per provider)
-- Panel layout and titles
-- System prompts
-- Prompt templates
-- Chat history
+## License
 
-## 🔒 Privacy & Security
+[MIT](LICENSE)
 
-- **No data is sent to any server operated by this project.** All API calls go directly from your browser to the AI provider's API (via the Edge Runtime proxy).
-- API keys are stored only in your browser's `localStorage`. They are never logged or persisted on any server.
-- The Edge Runtime proxy (`/api/chat`) forwards your request to the AI provider and streams the response back. It does not store any data.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please open an issue first to discuss what you'd like to change.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes (`git commit -m 'Add some feature'`)
-4. Push to the branch (`git push origin feature/your-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-[MIT](LICENSE) © Chat Panels Contributors
-
-Third-party licenses (fonts, UI components, npm packages): [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
+Third-party licenses: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)

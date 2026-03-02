@@ -22,7 +22,7 @@ interface AIModel {
 }
 
 interface MessageInputProps {
-  onSend: (message: string, fileId?: string) => void
+  onSend: (message: string, fileId?: string, targetPanelId?: number) => void
   disabled?: boolean
   isAnyPanelLoading?: boolean
   model: ModelId
@@ -38,6 +38,7 @@ interface MessageInputProps {
   enablePanelMode?: boolean
   activeProviderId?: string
   onClearChats?: () => void
+  sendTargets?: { id: number; label: string }[]
 }
 
 export function MessageInput({
@@ -55,6 +56,7 @@ export function MessageInput({
   enablePanelMode = false,
   activeProviderId,
   onClearChats,
+  sendTargets = [],
 }: MessageInputProps) {
   const value = draft
   const setValue = setDraft
@@ -65,18 +67,19 @@ export function MessageInput({
 
   const [uploading, setUploading] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<{ id: string, name: string }[]>([])
+  const [targetPanel, setTargetPanel] = useState<"all" | number>("all")
   const { t } = useI18n()
 
   const handleSubmit = useCallback(() => {
     const trimmed = value.trim()
     if (!trimmed && uploadedFiles.length === 0 || disabled || isAnyPanelLoading) return
-    onSend(trimmed, uploadedFiles[0]?.id)
+    onSend(trimmed, uploadedFiles[0]?.id, targetPanel === "all" ? undefined : targetPanel)
     setValue("")
     setUploadedFiles([])
     if (textareaRef.current) {
       textareaRef.current.style.height = "44px"
     }
-  }, [value, uploadedFiles, disabled, isAnyPanelLoading, onSend, setValue])
+  }, [value, uploadedFiles, disabled, isAnyPanelLoading, onSend, setValue, targetPanel])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -321,6 +324,26 @@ export function MessageInput({
                       </>
                     )}
                   </AnimatePresence>
+                </div>
+              )}
+              {sendTargets.length > 0 && (
+                <div className="relative shrink-0 z-50">
+                  <select
+                    value={targetPanel === "all" ? "all" : String(targetPanel)}
+                    onChange={(e) => {
+                      const nextValue = e.target.value
+                      setTargetPanel(nextValue === "all" ? "all" : Number(nextValue))
+                    }}
+                    className="h-8 rounded-xl border border-border bg-background px-2.5 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                    title="Send target"
+                  >
+                    <option value="all">All Panels</option>
+                    {sendTargets.map((target) => (
+                      <option key={target.id} value={target.id}>
+                        {target.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
 

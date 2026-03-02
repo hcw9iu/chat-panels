@@ -19,6 +19,8 @@ function createPanel(id: number): PanelState {
     id,
     title: `Panel ${id + 1}`,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
+    providerId: DIFY_PROVIDER.id,
+    modelId: DIFY_PROVIDER.models[0].id,
     messages: [],
     isLoading: false,
   }
@@ -173,7 +175,7 @@ const DEFAULT_SETTINGS: PlaygroundSettings = {
   activeProviderId: DIFY_PROVIDER.id,
   activeModelId: DIFY_PROVIDER.models[0].id,
   panelCount: 2,
-  enablePanelMode: false,
+  enablePanelMode: true,
   providerConfigs: {},
   // Legacy
   apiKey: "",
@@ -209,6 +211,8 @@ export function usePlayground() {
       ...rawSettings,
       providerConfigs: rawSettings.providerConfigs || {}
     }
+    // Enforce per-panel model/provider selection mode.
+    savedSettings.enablePanelMode = true
 
     // Migration: If legacy settings exist (apiKey, model) but no providerConfigs, migrate them
     // This assumes the legacy settings were for Longcat
@@ -302,7 +306,8 @@ export function usePlayground() {
   }, [])
 
   const togglePanelMode = useCallback((enabled: boolean) => {
-    setSettings((prev) => ({ ...prev, enablePanelMode: enabled }))
+    // Per-panel mode is required by product behavior.
+    setSettings((prev) => ({ ...prev, enablePanelMode: true }))
   }, [])
 
   // Legacy compatibility: Updates active provider's API key
@@ -649,7 +654,7 @@ export function usePlayground() {
   /* ------ Send message ------ */
 
   const sendMessage = useCallback(
-    async (userMessage: string, fileId?: string) => {
+    async (userMessage: string, fileId?: string, targetPanelId?: number) => {
       const snap = settingsRef.current
 
       // Basic validation
@@ -670,19 +675,26 @@ export function usePlayground() {
       const currentSettings = { ...snap }
 
       // Read panels synchronously from ref - guaranteed latest
-      const currentPanelSnapshots = panelsRef.current
-        .slice(0, currentSettings.panelCount)
-        .map((p) => ({ ...p }))
+      const panelCandidates = panelsRef.current.slice(0, currentSettings.panelCount)
+      const currentPanelSnapshots = (
+        typeof targetPanelId === "number"
+          ? panelCandidates.filter((p) => p.id === targetPanelId)
+          : panelCandidates
+      ).map((p) => ({ ...p }))
 
       if (currentPanelSnapshots.length === 0) return
 
       // Add user message + set loading
       setPanels((prev) =>
-        prev.map((p, idx) =>
-          idx < currentSettings.panelCount
+        prev.map((p, idx) => {
+          const shouldSendToPanel = typeof targetPanelId === "number"
+            ? p.id === targetPanelId
+            : idx < currentSettings.panelCount
+
+          return shouldSendToPanel
             ? { ...p, messages: [...p.messages, userMsg], isLoading: true }
             : p
-        )
+        })
       )
 
       const promises = currentPanelSnapshots.map(async (panelSnapshot) => {

@@ -5,6 +5,7 @@ import { JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import 'streamdown/styles.css'
 import { I18nProvider } from '@/lib/i18n/context'
+import { ThemeProvider } from '@/components/theme-provider'
 
 const lineSeedRegular = localFont({
   src: '../public/fonts/LINESeedJP-Regular.ttf',
@@ -60,7 +61,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#ffffff',
+  themeColor: '#101827',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -73,13 +74,15 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
       <body
         className={`${lineSeedRegular.variable} ${lineSeedBold.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        <I18nProvider>
-          {children}
-        </I18nProvider>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} themes={['dark', 'light']}>
+          <I18nProvider>
+            {children}
+          </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
