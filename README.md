@@ -7,6 +7,9 @@ Minimal multi-panel AI playground for comparing models side by side.
 ## What's New
 
 ### Added
+- BSP-style panel layout:
+  - Replaced horizontal appending/scroll layout with binary-split (BSP) tiling.
+  - New panels are arranged by recursive split instead of a single horizontal row.
 - Per-panel prompt sending:
   - Main input now supports sending to `All Panels` or a selected panel.
   - Panel-local actions (suggested questions / Dify interactive responses) send only to that panel.
