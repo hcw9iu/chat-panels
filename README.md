@@ -2,8 +2,6 @@
 
 Minimal multi-panel AI playground for comparing models side by side.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-chat--panels.pages.dev-blue?style=for-the-badge&logo=cloudflare)](https://chat-panels.pages.dev)
-
 ![Chat Panels – Demo](public/images/demo.png)
 
 ## What's New
@@ -25,6 +23,8 @@ Minimal multi-panel AI playground for comparing models side by side.
 - OpenAI GPT-5 family compatibility:
   - Uses `max_completion_tokens` instead of `max_tokens` for GPT-5 family models.
   - Does not send custom `temperature` for GPT-5 family models (uses API default).
+- Dark theme background application:
+  - Theme switching now updates the full app background and global surfaces, not only the toggle/button UI state.
 
 ## Features
 
