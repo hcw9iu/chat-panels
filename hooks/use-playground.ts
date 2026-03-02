@@ -9,6 +9,7 @@ const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
 const STORAGE_KEY_SETTINGS_BASE = "longcat-settings"
 const STORAGE_KEY_PANELS_BASE = "longcat-panels"
 const STORAGE_KEY_DRAFT_BASE = "longcat-draft"
+const STORAGE_KEY_PROVIDER_CONFIGS_GLOBAL = "longcat-provider-configs"
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -61,6 +62,28 @@ function removeFromStorage(key: string) {
   } catch {
     // ignore
   }
+}
+
+function collectProviderConfigsFromAllProjects(): PlaygroundSettings["providerConfigs"] {
+  if (typeof window === "undefined") return {}
+  const merged: PlaygroundSettings["providerConfigs"] = {}
+
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (!key || !key.startsWith(`${STORAGE_KEY_SETTINGS_BASE}:`)) continue
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      const parsed = JSON.parse(raw) as Partial<PlaygroundSettings>
+      if (parsed.providerConfigs && typeof parsed.providerConfigs === "object") {
+        Object.assign(merged, parsed.providerConfigs)
+      }
+    }
+  } catch {
+    return merged
+  }
+
+  return merged
 }
 
 /* ------------------------------------------------------------------ */
@@ -207,12 +230,28 @@ export function usePlayground(projectId = "default") {
       STORAGE_KEY_SETTINGS,
       DEFAULT_SETTINGS
     )
+    let globalProviderConfigs = loadFromStorage<PlaygroundSettings["providerConfigs"]>(
+      STORAGE_KEY_PROVIDER_CONFIGS_GLOBAL,
+      {}
+    )
+
+    if (Object.keys(globalProviderConfigs || {}).length === 0) {
+      globalProviderConfigs = collectProviderConfigsFromAllProjects()
+      if (Object.keys(globalProviderConfigs || {}).length > 0) {
+        saveToStorage(STORAGE_KEY_PROVIDER_CONFIGS_GLOBAL, globalProviderConfigs)
+      }
+    }
 
     // Ensure merged structure has providerConfigs even if rawSettings (old cache) missed it
     const savedSettings: PlaygroundSettings = {
       ...DEFAULT_SETTINGS,
       ...rawSettings,
-      providerConfigs: rawSettings.providerConfigs || {}
+      // Provider config is global across projects.
+      // Global takes precedence so a new project can instantly reuse API keys/base URLs.
+      providerConfigs: {
+        ...(rawSettings.providerConfigs || {}),
+        ...(globalProviderConfigs || {}),
+      }
     }
     // Enforce per-panel model/provider selection mode.
     savedSettings.enablePanelMode = true
@@ -270,6 +309,11 @@ export function usePlayground(projectId = "default") {
     setPanels(mergedPanels)
     setDraft(savedDraft)
     setHydrated(true)
+
+    // Bootstrap global provider configs from current project cache once.
+    if (Object.keys(globalProviderConfigs || {}).length === 0 && Object.keys(rawSettings.providerConfigs || {}).length > 0) {
+      saveToStorage(STORAGE_KEY_PROVIDER_CONFIGS_GLOBAL, rawSettings.providerConfigs || {})
+    }
   }, [])
 
   // ------ Persist to localStorage on change ------
@@ -277,6 +321,11 @@ export function usePlayground(projectId = "default") {
     if (!hydrated) return
     saveToStorage(STORAGE_KEY_SETTINGS, settings)
   }, [settings, hydrated])
+
+  useEffect(() => {
+    if (!hydrated) return
+    saveToStorage(STORAGE_KEY_PROVIDER_CONFIGS_GLOBAL, settings.providerConfigs || {})
+  }, [settings.providerConfigs, hydrated])
 
   useEffect(() => {
     if (!hydrated) return

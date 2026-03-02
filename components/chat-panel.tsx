@@ -842,16 +842,16 @@ function AssistantStatsBar({ message, providerId }: { message: ChatMessage, prov
 
   const handleFeedback = async (rating: "like" | "dislike") => {
     if (feedbackState === rating) return
-    const settingsData = localStorage.getItem("chat-panels-settings")
+    const settingsData = localStorage.getItem("longcat-provider-configs")
 
     try {
       let apiKey = message.providerApiKey
       let baseUrl = message.providerBaseUrl
 
       if (!apiKey && settingsData) {
-        const currentSettings = JSON.parse(settingsData)
-        apiKey = currentSettings.providerConfigs?.["dify"]?.apiKey
-        baseUrl = currentSettings.providerConfigs?.["dify"]?.baseUrl || "https://api.dify.ai/v1"
+        const providerConfigs = JSON.parse(settingsData)
+        apiKey = providerConfigs?.["dify"]?.apiKey
+        baseUrl = providerConfigs?.["dify"]?.baseUrl || "https://api.dify.ai/v1"
       }
 
       if (!apiKey) return
