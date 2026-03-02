@@ -7,6 +7,13 @@ Minimal multi-panel AI playground for comparing models side by side.
 ## What's New
 
 ### Added
+- Multi-project workspace pages:
+  - Projects are now independent pages at `/projects/{projectId}`.
+  - Each project has isolated persisted state (settings, panels, drafts, chats).
+  - Root route redirects to the latest/first stored project.
+- Hidable project sidebar:
+  - Left sidebar lists all projects and can be toggled with `Cmd+/` (`Ctrl+/` on Windows/Linux).
+  - Project management now includes create, rename, remove, and reorder.
 - BSP-style panel layout:
   - Replaced horizontal appending/scroll layout with binary-split (BSP) tiling.
   - New panels are arranged by recursive split instead of a single horizontal row.

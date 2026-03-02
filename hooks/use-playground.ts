@@ -6,9 +6,9 @@ import { getProvider, getAllProviders, PROVIDER_REGISTRY, LONGCAT_PROVIDER, DIFY
 import type { ProviderConfig } from "@/lib/ai-providers/types"
 
 const DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant."
-const STORAGE_KEY_SETTINGS = "longcat-settings"
-const STORAGE_KEY_PANELS = "longcat-panels"
-const STORAGE_KEY_DRAFT = "longcat-draft"
+const STORAGE_KEY_SETTINGS_BASE = "longcat-settings"
+const STORAGE_KEY_PANELS_BASE = "longcat-panels"
+const STORAGE_KEY_DRAFT_BASE = "longcat-draft"
 
 /* ------------------------------------------------------------------ */
 /*  Helpers                                                            */
@@ -188,7 +188,10 @@ const DEFAULT_PANELS: PanelState[] = Array.from({ length: 100 }, (_, i) => creat
 /*  Hook                                                               */
 /* ------------------------------------------------------------------ */
 
-export function usePlayground() {
+export function usePlayground(projectId = "default") {
+  const STORAGE_KEY_SETTINGS = `${STORAGE_KEY_SETTINGS_BASE}:${projectId}`
+  const STORAGE_KEY_PANELS = `${STORAGE_KEY_PANELS_BASE}:${projectId}`
+  const STORAGE_KEY_DRAFT = `${STORAGE_KEY_DRAFT_BASE}:${projectId}`
   // ------ hydration-safe state init from localStorage ------
   const [settings, setSettings] = useState<PlaygroundSettings>(DEFAULT_SETTINGS)
   const [panels, setPanels] = useState<PanelState[]>(DEFAULT_PANELS)
