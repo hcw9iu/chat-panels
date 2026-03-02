@@ -2,7 +2,7 @@
 
 Minimal multi-panel AI playground for comparing models side by side.
 
-![Chat Panels – Demo](public/images/demo.png)
+![Chat Panels – Demo](public/images/demo.jpg)
 
 ## What's New
 
