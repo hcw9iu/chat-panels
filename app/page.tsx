@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { HeaderBar } from "@/components/header-bar"
 import { ChatPanel } from "@/components/chat-panel"
 import { MessageInput } from "@/components/message-input"
@@ -9,17 +9,11 @@ import { PlaygroundSkeleton } from "@/components/playground-skeleton"
 import { usePlayground } from "@/hooks/use-playground"
 import { useTemplates } from "@/hooks/use-templates"
 import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  MoreVertical,
   Github,
 } from "lucide-react"
 import {
   getAllProviders
 } from "@/lib/ai-providers/registry"
-import { cn } from "@/lib/utils"
-import { useMemo } from "react"
 
 export default function PlaygroundPage() {
   const {
@@ -121,59 +115,75 @@ export default function PlaygroundPage() {
     })
   }, [settings.providerConfigs])
 
-  /* ---- Mobile scroll-snap navigation ---- */
-  const [activeIndex, setActiveIndex] = useState(0)
   const [mobilePromptOpen, setMobilePromptOpen] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (activeIndex >= count) setActiveIndex(Math.max(0, count - 1))
-  }, [count, activeIndex])
-
-  const visibleDesktopPanels = Math.min(count, 3)
-
-  const handleScroll = useCallback(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const w = el.clientWidth
-    if (w === 0) return
-    const isMobileLayout = window.innerWidth < 768
-    const panelWidth = isMobileLayout ? w : w / Math.min(count, 3)
-    const idx = Math.round(el.scrollLeft / panelWidth)
-    if (idx !== activeIndex) setMobilePromptOpen(false)
-    setActiveIndex(idx)
-  }, [activeIndex, count])
-
-  const scrollToPanel = useCallback(
-    (idx: number) => {
-      const el = scrollRef.current
-      if (!el) return
-      const isMobileLayout = window.innerWidth < 768
-      const panelWidth = isMobileLayout ? el.clientWidth : el.clientWidth / Math.min(count, 3)
-      // On PC, you can't scroll past (count - visibleDesktopPanels)
-      const maxScrollIdx = isMobileLayout ? count - 1 : Math.max(0, count - Math.min(count, 3))
-      const clamped = Math.max(0, Math.min(maxScrollIdx, idx))
-      el.scrollTo({ left: clamped * panelWidth, behavior: "smooth" })
-      setActiveIndex(clamped)
-    },
-    [count]
-  )
-
-  // Mobile dots visible only when >1 panel on small screens
-  const [isMobile, setIsMobile] = useState(false)
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener("resize", check)
-    return () => window.removeEventListener("resize", check)
-  }, [])
-  const showMobileDots = isMobile && count > 1
 
   if (!hydrated) {
     return <PlaygroundSkeleton />
   }
 
-  const currentMobilePanel = panels[activeIndex] ?? panels[0]
+  const activePanels = panels.slice(0, count)
+  const currentMobilePanel = activePanels[0] ?? panels[0]
+
+  const renderBinarySplit = (
+    panelItems: { panel: typeof panels[number]; idx: number }[],
+    depth = 0
+  ) => {
+    if (panelItems.length === 0) return null
+
+    if (panelItems.length === 1) {
+      const { panel, idx } = panelItems[0]
+      return (
+        <div className="h-full w-full min-h-0 min-w-0 overflow-hidden">
+          <ChatPanel
+            panel={panel}
+            panelIndex={idx}
+            totalPanels={count}
+            onUpdateSystemPrompt={(prompt) =>
+              updateSystemPrompt(panel.id, prompt)
+            }
+            onUpdateTitle={(title) =>
+              updatePanelTitle(panel.id, title)
+            }
+            onExportPanel={exportPanelChats}
+            onUpdateConfig={(config) => updatePanelConfig(panel.id, config)}
+            enablePanelMode={settings.enablePanelMode}
+            templates={templateStore.templates}
+            onApplyTemplate={(content) =>
+              updateSystemPrompt(panel.id, content)
+            }
+            availableProviders={effectiveProviders}
+            onSend={(message) => sendMessage(message, undefined, panel.id)}
+            difyParameters={
+              panel.difyParameters ||
+              settings.providerConfigs["dify"]?.difyApps?.find(a => a.apiKey === (panel.modelId || settings.activeModelId))?.parameters ||
+              settings.providerConfigs["dify"]?.difyParameters
+            }
+            onUpdateDifyInputs={updateDifyInputs}
+            onRefreshDifyParameters={refreshDifyParameters}
+            onRegisterDifyApp={registerDifyApp}
+            activeProviderId={settings.activeProviderId}
+            isAnyPanelLoading={isAnyPanelLoading}
+          />
+        </div>
+      )
+    }
+
+    const splitAt = Math.ceil(panelItems.length / 2)
+    const firstHalf = panelItems.slice(0, splitAt)
+    const secondHalf = panelItems.slice(splitAt)
+    const splitDirection = depth % 2 === 0 ? "row" : "col"
+
+    return (
+      <div className={`h-full w-full min-h-0 min-w-0 flex ${splitDirection === "row" ? "flex-row" : "flex-col"} gap-2`}>
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-border/30">
+          {renderBinarySplit(firstHalf, depth + 1)}
+        </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border border-border/30">
+          {renderBinarySplit(secondHalf, depth + 1)}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-dvh bg-background overflow-hidden relative flex-col">
@@ -210,118 +220,15 @@ export default function PlaygroundPage() {
 
       {/* ============ PANELS ============ */}
       <div className="flex-1 relative min-h-0">
-        {/* PC Panel Nav Arrows (Left/Right Center) */}
-        {!isMobile && count > visibleDesktopPanels && activeIndex > 0 && (
-          <button
-            onClick={() => scrollToPanel(activeIndex - 1)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-40 p-2 bg-background/80 hover:bg-background border border-border shadow-md text-foreground rounded-full transition-transform hover:scale-105 active:scale-95"
-            aria-label="Previous panels"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        )}
-        {!isMobile && count > visibleDesktopPanels && activeIndex < count - visibleDesktopPanels && (
-          <button
-            onClick={() => scrollToPanel(activeIndex + 1)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-40 p-2 bg-background/80 hover:bg-background border border-border shadow-md text-foreground rounded-full transition-transform hover:scale-105 active:scale-95"
-            aria-label="Next panels"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        )}
-        <div className="absolute inset-0">
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="h-full w-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory no-scrollbar"
-          >
-            {panels.map((panel, idx) => (
-              <div
-                key={panel.id}
-                className={cn(
-                  "h-full shrink-0 snap-start snap-always",
-                  "w-screen",
-                  "md:w-[var(--panel-width)]"
-                )}
-                style={{
-                  "--panel-width": `${100 / visibleDesktopPanels}%`,
-                } as React.CSSProperties}
-              >
-                <ChatPanel
-                  panel={panel}
-                  panelIndex={idx}
-                  totalPanels={count}
-                  onUpdateSystemPrompt={(prompt) =>
-                    updateSystemPrompt(panel.id, prompt)
-                  }
-                  onUpdateTitle={(title) =>
-                    updatePanelTitle(panel.id, title)
-                  }
-                  onExportPanel={exportPanelChats}
-                  onUpdateConfig={(config) => updatePanelConfig(panel.id, config)}
-                  enablePanelMode={settings.enablePanelMode}
-                  templates={templateStore.templates}
-                  onApplyTemplate={(content) =>
-                    updateSystemPrompt(panel.id, content)
-                  }
-                  availableProviders={effectiveProviders}
-                  onSend={(message) => sendMessage(message, undefined, panel.id)}
-                  difyParameters={
-                    panel.difyParameters ||
-                    settings.providerConfigs["dify"]?.difyApps?.find(a => a.apiKey === (panel.modelId || settings.activeModelId))?.parameters ||
-                    settings.providerConfigs["dify"]?.difyParameters
-                  }
-                  onUpdateDifyInputs={updateDifyInputs}
-                  onRefreshDifyParameters={refreshDifyParameters}
-                  onRegisterDifyApp={registerDifyApp}
-                  activeProviderId={settings.activeProviderId}
-                  isAnyPanelLoading={isAnyPanelLoading}
-                />
-              </div>
-            ))}
-          </div>
+        <div className="absolute inset-0 p-2 md:p-3">
+          {renderBinarySplit(activePanels.map((panel, idx) => ({ panel, idx })))}
         </div>
       </div>
 
 
 
-      {/* Global Input (Overlay) & Mobile Nav Dots */}
+      {/* Global Input (Overlay) */}
       <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
-        {/* ============ MOBILE NAV DOTS ============ */}
-        {showMobileDots && (
-          <div className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 flex items-center gap-2 z-30 pointer-events-auto bg-background/80 backdrop-blur-md px-3 py-1.5 rounded-full border border-border/50 shadow-sm">
-            {activeIndex > 0 && (
-              <button
-                onClick={() => scrollToPanel(activeIndex - 1)}
-                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-            )}
-            <div className="flex items-center gap-1.5 mx-1">
-              {panels.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => scrollToPanel(idx)}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all",
-                    idx === activeIndex
-                      ? "w-5 bg-primary"
-                      : "w-1.5 bg-border hover:bg-muted-foreground/40"
-                  )}
-                />
-              ))}
-            </div>
-            {activeIndex < count - 1 && (
-              <button
-                onClick={() => scrollToPanel(activeIndex + 1)}
-                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
         <MessageInput
           onSend={sendMessage}
           disabled={!hasApiKey}
